@@ -221,6 +221,16 @@ def plugin_fn(func):
     return inner
 
 
+@import_fn("fc", "execute_function")
+def execute_function(function_name: str, args: str) -> str:
+    """
+    A generic host function executor definition which takes function_name &
+    args as arguments with return type as str which is the return value of the
+    function_name.
+    """
+    pass
+
+
 def shared_fn(f):
     """Annotate a an export that won't be called directly by Extism"""
     global __exports
