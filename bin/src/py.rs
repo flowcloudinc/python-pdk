@@ -48,7 +48,13 @@ fn get_export<R: std::fmt::Debug>(
 ) -> Result<Export, Error> {
     let func = f.name.to_string();
 
-    let n_args = f.args.args.len();
+    // let n_args = f.args.args.len();
+    // The extism doesn't support exported function with arguments.
+    // But we have added logic in the invoke.py to fetch the input_str and
+    // pass it the caller function.
+    // This is again with the assumption that exported functions always take
+    // single argument and that has to be of str type.
+    let n_args = 0;
     let has_return = f.returns.is_some();
 
     if is_plugin_fn && n_args > 0 {
