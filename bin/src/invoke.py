@@ -1,3 +1,4 @@
+import json
 import traceback
 
 
@@ -14,7 +15,9 @@ def __invoke(index, shared, *args):
                 t = f.__annotations__.get(argnames[i], extism.memory.MemoryHandle)
                 a.append(extism._load(t, arg))
         else:
-            a = [extism._store(x) for x in args]
+            # For now, we only export the functions which takes single argument.
+            # The only argument that is passed on is assumed to be a string.
+            a = [json.loads(extism.input_str())]
 
         res = f(*a)
         if shared and res is not None:
