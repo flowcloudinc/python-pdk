@@ -105,6 +105,35 @@ def compute(func):
     return wrapper
 
 
+def wait_for_signal(functions):
+    function_map = {func.__name__: func for func in functions}
+    # Call the host_callback
+    payload = json.dumps({"name": list(function_map.keys())})
+    args = ("signal", payload)
+    args = [_store(a) for a in args]
+    ret = str
+    # The host_callback function is imported at index 0,
+    # so we make that assumption and pass index 0 to invoke the required
+    # host function.
+    res = ffi.__invoke_host_func(0, *args)
+    result = _load(ret, res)
+    ret = json.loads(result)
+
+    function_name = ret["name"]
+    args_json = ret["args"]
+    args = json.loads(args_json)
+    # Call the corresponding function and return its result
+    if function_name in function_map:
+        return function_map[function_name](args)
+    else:
+        raise ValueError(
+            f"Function '{function_name}' not found in the provided "
+            "functions"
+        )
+
+
+
+
 def plugin_fn(func):
     """Annotate a function that will be called by Extism"""
     global __exports
