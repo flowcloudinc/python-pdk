@@ -21,6 +21,7 @@ def log(level, msg):
 HttpRequest = ffi.HttpRequest
 
 __exports = []
+__exports_query = []
 
 IMPORT_INDEX = 0
 
@@ -88,19 +89,37 @@ def import_fn(module, name):
     return inner
 
 
-def compute(func):
-    def wrapper(input: str):
-        # Call the host_callback
-        import json
-        payload = json.dumps({"name": func.__name__, "args": input})
-        args = ("compute", payload)
-        args = [_store(a) for a in args]
+def _invoke_host_func(typ: str, payload: str):
+    old_typ = typ
+    while True:
+        args = [_store(a) for a in (typ, payload)]
         ret = str
         # The host_callback function is imported at index 0,
         # so we make that assumption and pass index 0 to invoke the required
         # host function.
         res = ffi.__invoke_host_func(0, *args)
-        return _load(ret, res)
+        response = json.loads(_load(ret, res))
+        if response["typ"] == old_typ:
+            return response
+        elif response["typ"] == "query":
+            name = response["name"]
+            for query_func in __exports_query:
+                if query_func.__name__ == name:
+                    query_result = query_func()
+                    payload = json.dumps(
+                        {"name": query.__name__, "ret": query_result}
+                    )
+                    typ = "query"
+                    break
+
+
+def compute(func):
+    def wrapper(input: str):
+        # Call the host_callback
+        import json
+        payload = json.dumps({"name": func.__name__, "args": input})
+        result = _invoke_host_func("compute", payload)
+        return result["ret"]
 
     return wrapper
 
@@ -109,18 +128,9 @@ def wait_for_signal(functions):
     function_map = {func.__name__: func for func in functions}
     # Call the host_callback
     payload = json.dumps({"name": list(function_map.keys())})
-    args = ("signal", payload)
-    args = [_store(a) for a in args]
-    ret = str
-    # The host_callback function is imported at index 0,
-    # so we make that assumption and pass index 0 to invoke the required
-    # host function.
-    res = ffi.__invoke_host_func(0, *args)
-    result = _load(ret, res)
-    ret = json.loads(result)
-
-    function_name = ret["name"]
-    args_json = ret["args"]
+    result = _invoke_host_func("signal", payload)
+    function_name = result["name"]
+    args_json = result["args"]
     args = json.loads(args_json)
     # Call the corresponding function and return its result
     if function_name in function_map:
@@ -132,6 +142,11 @@ def wait_for_signal(functions):
         )
 
 
+def query(func):
+    """Decorator to add a function to the __exports_query list."""
+    global __exports_query
+    __exports_query.append(func)
+    return func
 
 
 def plugin_fn(func):
