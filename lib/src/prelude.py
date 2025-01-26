@@ -149,6 +149,10 @@ def query(func):
     return func
 
 
+def sleep(delay: int):
+    _invoke_host_func("timer", json.dumps({"delay": delay}))
+
+
 def plugin_fn(func):
     """Annotate a function that will be called by Extism"""
     global __exports
