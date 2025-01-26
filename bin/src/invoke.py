@@ -12,6 +12,14 @@ def host_callback(typ: str, payload: str) -> str:
 def __invoke(index, shared, *args):
     import extism
 
+    import time
+    # patch the *.sleep functions which will invoke the host_callback
+    # instead and make the guest wait until the delay argument specified.
+    # Note: We don't support asyncio yet, so please refrain from using it and
+    # patching it here also.
+    time.sleep = extism.sleep
+
+
     try:
         f = extism.__exports[index]
 
