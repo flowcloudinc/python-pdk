@@ -3,3 +3,5 @@ Cargo.lock
 extism-py
 examples/*.wasm
 .envrc
+.idea
+

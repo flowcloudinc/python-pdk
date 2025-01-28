@@ -103,14 +103,20 @@ def _invoke_host_func(typ: str, payload: str):
             return response
         elif response["typ"] == "query":
             name = response["name"]
+            args = {}
+            if "args" in response and response["args"]:
+                args = json.loads(response["args"])
             for query_func in __exports_query:
                 if query_func.__name__ == name:
-                    query_result = query_func()
+                    query_result = query_func(**args)
                     payload = json.dumps(
                         {"name": query.__name__, "ret": query_result}
                     )
                     typ = "query"
                     break
+
+            # TODO: Add logic to return error for the query functions which
+            #  are not registered by guest.
 
 
 def compute(func):
@@ -130,11 +136,13 @@ def wait_for_signal(functions):
     payload = json.dumps({"name": list(function_map.keys())})
     result = _invoke_host_func("signal", payload)
     function_name = result["name"]
-    args_json = result["args"]
-    args = json.loads(args_json)
+    args = {}
+    if "args" in result and result["args"]:
+        args = json.loads(result["args"])
+
     # Call the corresponding function and return its result
     if function_name in function_map:
-        return function_map[function_name](args)
+        return function_map[function_name](**args)
     else:
         raise ValueError(
             f"Function '{function_name}' not found in the provided "
