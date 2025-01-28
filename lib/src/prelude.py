@@ -22,6 +22,7 @@ HttpRequest = ffi.HttpRequest
 
 __exports = []
 __exports_query = []
+__exports_signal = []
 
 IMPORT_INDEX = 0
 
@@ -130,30 +131,40 @@ def compute(func):
     return wrapper
 
 
-def wait_for_signal(functions):
-    function_map = {func.__name__: func for func in functions}
+def wait_for_signal(condition):
     # Call the host_callback
-    payload = json.dumps({"name": list(function_map.keys())})
-    result = _invoke_host_func("signal", payload)
-    function_name = result["name"]
-    args = {}
-    if "args" in result and result["args"]:
-        args = json.loads(result["args"])
+    payload = json.dumps({"name": list()})
+    while True:
+        result = _invoke_host_func("signal", payload)
+        function_name = result["name"]
+        args = {}
+        if "args" in result and result["args"]:
+            args = json.loads(result["args"])
 
-    # Call the corresponding function and return its result
-    if function_name in function_map:
-        return function_map[function_name](**args)
-    else:
-        raise ValueError(
-            f"Function '{function_name}' not found in the provided "
-            "functions"
-        )
+        # Call the corresponding function and return its result
+        for signal_func in __exports_signal:
+            if function_name == signal_func.__name__:
+                signal_func(**args)
+                if condition():
+                    return
+                break
+        else:
+            raise ValueError(
+                f"Function '{function_name}' not found in the provided "
+                "functions"
+            )
 
 
 def query(func):
     """Decorator to add a function to the __exports_query list."""
     global __exports_query
     __exports_query.append(func)
+    return func
+
+
+def signal(func):
+    global __exports_signal
+    __exports_signal.append(func)
     return func
 
 
