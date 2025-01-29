@@ -23,6 +23,8 @@ HttpRequest = ffi.HttpRequest
 __exports = []
 __exports_query = []
 __exports_signal = []
+__exports_update = []
+
 
 IMPORT_INDEX = 0
 
@@ -102,6 +104,25 @@ def _invoke_host_func(typ: str, payload: str):
         response = json.loads(_load(ret, res))
         if response["typ"] == old_typ:
             return response
+        elif response["typ"] == "update":
+            update_func = response["name"]
+            args = {}
+            if "args" in response and response["args"]:
+                args = json.loads(response["args"])
+
+            for func in __exports_update:
+                if func.__name__ == update_func:
+                    ret = func(**args)
+                    payload = json.dumps({
+                        "name": update_func,
+                        "ret": ret,
+                        "waiting_on_signal": True if old_typ == "signal" else False,
+                        "protocol_instance_id": response["protocol_instance_id"]
+                    })
+                    typ = "update"
+                    break
+            else:
+                raise ValueError("Unsupported update function received")
         elif response["typ"] == "query":
             name = response["name"]
             args = {}
@@ -133,9 +154,17 @@ def compute(func):
 
 def wait_for_signal(condition):
     # Call the host_callback
-    payload = json.dumps({"name": list()})
+    payload = json.dumps({"name": list(), "skip": False})
     while True:
         result = _invoke_host_func("signal", payload)
+
+        if result.get("check_condition"):
+            if condition():
+                return
+            else:
+                payload = json.dumps({"name": list(), "skip": True})
+                continue
+
         function_name = result["name"]
         args = {}
         if "args" in result and result["args"]:
@@ -165,6 +194,12 @@ def query(func):
 def signal(func):
     global __exports_signal
     __exports_signal.append(func)
+    return func
+
+
+def update(func):
+    global __exports_update
+    __exports_update.append(func)
     return func
 
 
