@@ -1,6 +1,8 @@
 from typing import Union, Optional
+from functools import wraps
 import json
 from enum import Enum
+import sys
 
 import extism_ffi as ffi
 
@@ -141,17 +143,6 @@ def _invoke_host_func(typ: str, payload: str):
             #  are not registered by guest.
 
 
-def compute(func):
-    def wrapper(**kwargs):
-        # Call the host_callback
-        import json
-        payload = json.dumps({"name": func.__name__, "args": json.dumps(kwargs)})
-        result = _invoke_host_func("compute", payload)
-        return result["ret"]
-
-    return wrapper
-
-
 def wait_for_condition(condition):
     # Call the host_callback
     payload = json.dumps({"name": list(), "skip": False})
@@ -182,6 +173,42 @@ def wait_for_condition(condition):
                 f"Function '{function_name}' not found in the provided "
                 "functions"
             )
+
+
+def compute(func):
+    """Annotate a function that will be called by host-guest interface"""
+    global __exports
+    __exports.append(func)
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        caller_frame = sys._getframe(1)  # Caller is 1 level up
+        caller_name = caller_frame.f_code.co_name
+        if caller_name == "__invoke":
+            def inner():
+                return func(*args, **kwargs)
+
+            return inner
+        else:
+            import json
+            payload = json.dumps(
+                {"name": func.__name__, "args": json.dumps(kwargs)}
+            )
+            result = _invoke_host_func("compute", payload)
+            return result["ret"]
+
+    return wrapper
+
+
+def flow(func):
+    """Annotate a function that will be called by guest"""
+    global __exports
+    __exports.append(func)
+
+    def inner():
+        return func()
+
+    return inner
 
 
 def query(func):

@@ -43,6 +43,7 @@ fn get_import<R: std::fmt::Debug>(
 }
 
 fn get_export<R: std::fmt::Debug>(
+    typ: &str,
     f: &rustpython_parser::ast::StmtFunctionDef<R>,
     is_plugin_fn: bool,
 ) -> Result<Export, Error> {
@@ -63,7 +64,7 @@ fn get_export<R: std::fmt::Debug>(
         );
     }
     Ok(Export {
-        name: func,
+        name: format!("{}.{}", func, typ),
         is_plugin_fn,
         params: vec![wagen::ValType::I64; n_args],
         results: if is_plugin_fn {
@@ -103,8 +104,8 @@ fn get_export_decorator<R: std::fmt::Debug>(
         if let Some(call) = d.as_call_expr() {
             if let Some(name) = call.func.as_attribute_expr() {
                 if let Some(n) = name.value.as_name_expr() {
-                    if n.id.as_str() == "plugin_fn"
-                        || n.id.as_str() == "extism" && name.attr.as_str() == "plugin_fn"
+                    if (n.id.as_str() == "compute" || n.id.as_str() == "flow")
+                        || (n.id.as_str() == "extism" && (name.attr.as_str() == "compute" || name.attr.as_str() == "flow" ))
                     {
                         anyhow::bail!("extism.plugin_fn takes no arguments");
                     } else if n.id.as_str() == "shared_fn"
@@ -116,14 +117,17 @@ fn get_export_decorator<R: std::fmt::Debug>(
             }
         } else if let Some(attr) = d.as_attribute_expr() {
             if let Some(n) = attr.value.as_name_expr() {
-                if n.id.as_str() == "plugin_fn"
-                    || n.id.as_str() == "extism" && attr.attr.as_str() == "plugin_fn"
+                if (n.id.as_str() == "compute" || n.id.as_str() == "flow" )
                 {
-                    return get_export(f, true).map(Some);
+                    return get_export(n.id.as_str(), f, true).map(Some);
+                } else if n.id.as_str() == "extism" && (attr.attr.as_str() == "compute" || attr.attr.as_str() == "flow" ){
+                    return get_export(attr.attr.as_str(), f, true).map(Some);
                 } else if n.id.as_str() == "shared_fn"
                     || n.id.as_str() == "extism" && attr.attr.as_str() == "shared_fn"
                 {
-                    return get_export(f, false).map(Some);
+                    // We don't need this functionality for now, so just pass empty string which
+                    // will be ignored dby the get_export function.
+                    return get_export("", f, false).map(Some);
                 }
             }
         }
