@@ -30,11 +30,13 @@ def __invoke(index, shared, *args):
                 t = f.__annotations__.get(argnames[i], extism.memory.MemoryHandle)
                 a.append(extism._load(t, arg))
         else:
-            # For now, we only export the functions which takes single argument.
-            # The only argument that is passed on is assumed to be a string.
-            a = [json.loads(extism.input_str())]
+            # The arguments to the function always have to be keyword mapped.
+            # It is marshalled JSON.
+            a = json.loads(extism.input_str())
 
-        res = f(*a)
+        res = f(**a)
+
+        extism.output(res)
         if shared and res is not None:
             return extism._store(res)
         if res is not None and "return" in f.__annotations__:
