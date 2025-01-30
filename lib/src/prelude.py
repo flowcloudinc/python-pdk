@@ -152,7 +152,7 @@ def compute(func):
     return wrapper
 
 
-def wait_for_signal(condition):
+def wait_for_condition(condition):
     # Call the host_callback
     payload = json.dumps({"name": list(), "skip": False})
     while True:
