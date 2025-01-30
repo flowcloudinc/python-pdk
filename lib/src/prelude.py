@@ -142,10 +142,10 @@ def _invoke_host_func(typ: str, payload: str):
 
 
 def compute(func):
-    def wrapper(input: str):
+    def wrapper(**kwargs):
         # Call the host_callback
         import json
-        payload = json.dumps({"name": func.__name__, "args": input})
+        payload = json.dumps({"name": func.__name__, "args": json.dumps(kwargs)})
         result = _invoke_host_func("compute", payload)
         return result["ret"]
 
